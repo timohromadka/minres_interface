@@ -87,9 +87,10 @@ class UltrasoundAssessment(QMainWindow):
 
         for btn in [self.healthy_btn, self.unhealthy_btn, self.cant_tell_btn]:
             btn.setStyleSheet(
-                "border-radius: 25px; padding: 10px; font-size: 18px; background-color: lightblue;"
+                "border-radius: 25px; padding: 10px; font-size: 18px; background-color: lightblue; cursor: pointer;"
             )
             btn.setFixedSize(150, 50)
+            btn.setCursor(Qt.PointingHandCursor)
 
         self.healthy_btn.clicked.connect(lambda: self.log_prediction("Healthy"))
         self.unhealthy_btn.clicked.connect(lambda: self.log_prediction("Unhealthy"))
@@ -219,7 +220,8 @@ class UltrasoundAssessment(QMainWindow):
         layout.addWidget(label)
 
         exit_btn = QPushButton("Exit")
-        exit_btn.setStyleSheet("border-radius: 25px; padding: 10px; font-size: 18px; background-color: lightgreen;")
+        exit_btn.setStyleSheet("border-radius: 25px; padding: 10px; font-size: 18px; background-color: lightgreen; cursor: pointer;")
+        exit_btn.setCursor(Qt.PointingHandCursor)
         exit_btn.clicked.connect(self.close)
         layout.addWidget(exit_btn)
         layout.setAlignment(Qt.AlignCenter)
