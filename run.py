@@ -1,3 +1,4 @@
+import argparse
 import datetime
 import sys
 import os
@@ -6,7 +7,6 @@ import cv2
 import pandas as pd
 import logging
 
-
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QPushButton, QSlider, QVBoxLayout, QHBoxLayout,
     QWidget, QLabel, QStyle
@@ -14,13 +14,14 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QPixmap, QImage
 
+from utils import VideoSample, VideoQueue, parse_resolutions
 
 class UltrasoundAssessment(QMainWindow):
-    def __init__(self, video_dir):
+    def __init__(self, video_dir, resolutions):
         super().__init__()
         self.video_dir = video_dir
         self.log_file = "assessment_log.csv"
-        self.resolutions = [(320, 240), (480, 320), (640, 480), (800, 600), (1024, 768), (1280, 720)]
+        self.resolutions = resolutions
         self.current_video = None
         self.current_resolution_idx = 0
         self.video_order = []
@@ -28,34 +29,53 @@ class UltrasoundAssessment(QMainWindow):
         self.correct_predictions = {}
         self.start_time = None
 
-        self.init_video_data()
+        self.video_queue = self.get_video_queue()
+        self.df = self.create_df()
         self.init_ui()
+        
+    class CorruptFileException(Exception):
+        """Custom exception for corrupt video files."""
+        pass
+        
 
-    def init_video_data(self):
+    def get_video_queue(self):
         self.videos = []
         for category in ['healthy', 'unhealthy']:
             folder_path = os.path.join(self.video_dir, category)
             for file in os.listdir(folder_path):
                 if file.endswith('.mp4'):
                     video_path = os.path.join(folder_path, file)
-                    resolution = cv2.VideoCapture(video_path).get(cv2.CAP_PROP_FRAME_HEIGHT)
-                    self.videos.append((video_path, resolution, category))
-        self.videos.sort(key=lambda x: x[1])
-
-        self.video_order = random.sample(self.videos, len(self.videos))
-        self.video_transform = {
-            video[0]: random.choice(['none', 'h_flip', 'v_flip', 'hv_flip']) for video in self.video_order
-        }
-        self.correct_predictions = {video[0]: 0 for video in self.video_order}
-
+                    res_w = cv2.VideoCapture(video_path).get(cv2.CAP_PROP_FRAME_WIDTH)
+                    res_h = cv2.VideoCapture(video_path).get(cv2.CAP_PROP_FRAME_HEIGHT)
+                    # instantiate object
+                    if res_w == 0 or res_h == 0:
+                        raise self.CorruptFileException(f"Corrupt file detected: {video_path}")
+                    video_object = VideoSample(video_path, (res_w, res_h))
+                    self.videos.append(video_object)
+                    
+        video_queue = VideoQueue(self.videos)
+        return video_queue
+    
+    
+    def create_df(self):
         if not os.path.exists(self.log_file):
             pd.DataFrame(columns=[
                 "video_name", "resolution", "prediction", "time_taken", "category"
             ]).to_csv(self.log_file, index=False)
+            
+            
+        # self.video_order = random.sample(self.videos, len(self.videos))
+        # self.video_transform = {
+        #     video[0]: random.choice(['none', 'h_flip', 'v_flip', 'hv_flip']) for video in self.video_order
+        # }
+        # self.correct_predictions = {video[0]: 0 for video in self.video_order}
+
+
 
     def init_ui(self):
         self.setWindowTitle("Ultrasound Assessment")
-        self.showMaximized()
+        # self.showMaximized()
+        self.showFullScreen()
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
 
@@ -112,17 +132,16 @@ class UltrasoundAssessment(QMainWindow):
         self.load_next_video()
 
     def load_next_video(self):
-        if not self.video_order:
+        if not self.video_queue:
             self.show_end_screen()
             return
 
-        self.current_video, resolution, category = self.video_order.pop(0)
-        self.current_resolution_idx = 0
+        self.current_video  = self.video_queue.get_next_video() # returns a VideoSample object
         self.start_time = pd.Timestamp.now()
 
-        self.cap = cv2.VideoCapture(self.current_video)
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.resolutions[self.current_resolution_idx][0])
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.resolutions[self.current_resolution_idx][1])
+        self.cap = cv2.VideoCapture(self.current_video.filepath)
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.current_video.resolution[0])
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.current_video.resolution[1])
 
         self.slider.setMaximum(int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT)))
         self.timer.start(30)
@@ -133,12 +152,11 @@ class UltrasoundAssessment(QMainWindow):
             self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
             return
 
-        transform = self.video_transform[self.current_video]
-        if transform == "h_flip":
+        if self.current_video.transform == "h_flip":
             frame = cv2.flip(frame, 1)
-        elif transform == "v_flip":
+        elif self.current_video.transform == "v_flip":
             frame = cv2.flip(frame, 0)
-        elif transform == "hv_flip":
+        elif self.current_video.transform == "hv_flip":
             frame = cv2.flip(frame, -1)
 
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -219,8 +237,13 @@ class UltrasoundAssessment(QMainWindow):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Set up ultrasound data before running GUI tests.')
+    parser.add_argument("--video_dir", type=str, default="ultrasounds", help="Directory in which ultrasound videos are located.")
+    parser.add_argument("--resolutions", type=parse_resolutions, default=[(320, 240), (480, 320), (640, 480), (800, 600), (1024, 768), (1280, 720)], help="Specify the resolution for compression, e.g. [(420,300), (800,600)].")
+    
+    args = parser.parse_args()
+    
     app = QApplication(sys.argv)
-    video_dir = "ultrasounds"  # Update with your path
-    window = UltrasoundAssessment(video_dir)
+    window = UltrasoundAssessment(args.video_dir, args.resolutions)
     window.show()
     sys.exit(app.exec_())

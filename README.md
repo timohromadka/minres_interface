@@ -23,3 +23,9 @@ This code is to create an ultrasound display viewer
 ```
 pip install pyqt5 opencv-python-headless pandas
 ```
+
+Then, run this in console:
+```
+export QT_QPA_PLATFORM=offscreen 
+```
+(to solve a bug: https://github.com/NVlabs/instant-ngp/discussions/300)
