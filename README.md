@@ -21,6 +21,8 @@ This code is to create an ultrasound display viewer
 
 ## Installation
 ```
+python -m venv minres_venv
+.\minres_venv\Scripts\activate
 pip install pyqt5 opencv-python-headless pandas
 ```
 

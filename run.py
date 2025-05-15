@@ -60,9 +60,8 @@ class UltrasoundAssessment(QMainWindow):
     def create_df(self):
         if not os.path.exists(self.log_file):
             pd.DataFrame(columns=[
-                "video_name", "resolution", "prediction", "time_taken", "category"
+                "video_name", "resolution", "prediction", "time_taken", "true_label", "time_stamp", "explanation"
             ]).to_csv(self.log_file, index=False)
-            
             
         # self.video_order = random.sample(self.videos, len(self.videos))
         # self.video_transform = {
@@ -132,11 +131,10 @@ class UltrasoundAssessment(QMainWindow):
         self.load_next_video()
 
     def load_next_video(self):
-        if not self.video_queue:
+        self.current_video  = self.video_queue.get_next_video() # returns a VideoSample object
+        if not self.current_video:
             self.show_end_screen()
             return
-
-        self.current_video  = self.video_queue.get_next_video() # returns a VideoSample object
         self.start_time = pd.Timestamp.now()
 
         self.cap = cv2.VideoCapture(self.current_video.filepath)
@@ -188,32 +186,27 @@ class UltrasoundAssessment(QMainWindow):
         self.cap.set(cv2.CAP_PROP_POS_FRAMES, current_frame + self.cap.get(cv2.CAP_PROP_FPS))
         self.update_frame()
 
-    def log_prediction(self, prediction):
+    def log_prediction(self, prediction, explanation="Not Implemented Yet"):
         time_taken = (pd.Timestamp.now() - self.start_time).total_seconds()
-        resolution = f"{self.resolutions[self.current_resolution_idx][0]}x{self.resolutions[self.current_resolution_idx][1]}"
-        video_name = os.path.basename(self.current_video)
+        # TODO explanation
+        self.video_queue.update_predictions(self.current_video, prediction, explanation)
 
         log_data = {
-            "video_name": video_name,
-            "resolution": resolution,
+            "video_name": self.current_video.filename,
+            "resolution": self.current_video.resolution,
             "prediction": prediction,
             "time_taken": time_taken,
-            "true_label": self.get_category(self.current_video),
-            "time_stamp": datetime.datetime.now()
+            "true_label": self.current_video.label,
+            "time_stamp": datetime.datetime.now(),
+            "explanation": self.current_video.explanation
         }
         pd.DataFrame([log_data]).to_csv(self.log_file, mode="a", header=False, index=False)
+        
+        self.cap.release()
+        self.timer.stop()
 
-        if prediction.lower() == self.get_category(self.current_video):
-            self.correct_predictions[self.current_video] += 1
-            if self.correct_predictions[self.current_video] >= 3:
-                return self.load_next_video()
-
-        self.current_resolution_idx += 1
-        if self.current_resolution_idx >= len(self.resolutions):
-            self.load_next_video()
-
-    def get_category(self, video_path):
-        return "healthy" if "healthy" in video_path else "unhealthy"
+        # Load the next video
+        self.load_next_video()
 
     def show_end_screen(self):
         self.timer.stop()
@@ -221,18 +214,18 @@ class UltrasoundAssessment(QMainWindow):
         end_widget = QWidget()
         layout = QVBoxLayout()
         label = QLabel("Thank You")
-        label.setStyleSheet("color: white; font-size: 48px;")
+        label.setStyleSheet("color: black; font-size: 48px;")
         label.setAlignment(Qt.AlignCenter)
         layout.addWidget(label)
 
         exit_btn = QPushButton("Exit")
-        exit_btn.setStyleSheet("font-size: 24px;")
+        exit_btn.setStyleSheet("border-radius: 25px; padding: 10px; font-size: 18px; background-color: lightgreen;")
         exit_btn.clicked.connect(self.close)
         layout.addWidget(exit_btn)
         layout.setAlignment(Qt.AlignCenter)
 
         end_widget.setLayout(layout)
-        end_widget.setStyleSheet("background-color: black;")
+        end_widget.setStyleSheet("background-color: white;")
         self.setCentralWidget(end_widget)
 
 

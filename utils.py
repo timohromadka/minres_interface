@@ -25,10 +25,10 @@ class VideoSample:
         self.filename = self.filepath.split('/')[-1]
         self.label = label if label else self.get_label()
         self.transform = random.choice(['none', 'h_flip', 'v_flip', 'hv_flip'])
-        self.original_filename = self.filepath.split("/")[-1].split("_")[0] + ".mp4" # extract the name before the suffix, with .mp4 at the end
+        self.original_filename = os.path.basename(self.filepath).split("_")[0] + ".mp4" # extract the name before the suffix, with .mp4 at the end
 
     def get_label(self):
-        return self.filepath.split('/')[-2]
+        return os.path.basename(os.path.dirname(self.filepath))
 
     def __repr__(self):
         return (f"VideoSample(filename={self.filename}, resolution={self.resolution}, "
@@ -41,14 +41,13 @@ class VideoSample:
 
 class VideoQueue:
     def __init__(self, videos):
-        self.heap = []  # Min-heap to maintain the priority queue
+        self.heap = []  # Min-heap
         self.videos = videos
-        self.processed_resolutions = defaultdict(set)  # Track processed resolutions per original filename
-        self.successful_predictions = defaultdict(int)  # Track successful predictions per original filename
+        self.processed_resolutions = defaultdict(set)
+        self.successful_predictions = defaultdict(int) 
 
-        # Populate the heap with videos
         for video in self.videos:
-            heapq.heappush(self.heap, (video.resolution, video))  # Sort by resolution
+            heapq.heappush(self.heap, (video.resolution, video)) 
 
     def get_next_video(self):
         """Fetch the next video to process based on priority."""
@@ -80,7 +79,7 @@ class VideoQueue:
             self.successful_predictions[video.original_filename] = 0  # Reset if prediction fails
 
         return video
-    
+
 # ===================================
 # ARGS UTILITY
 # ===================================
@@ -130,7 +129,7 @@ def make_resolution_copy(file, resolution):
         out.write(resized_frame)
 
     out.release()
-    logger.info(f"Compressed video saved at {output_file}")
+    logger.info(f"\nCompressed video saved at {output_file}")
 
     cap.release()
 
