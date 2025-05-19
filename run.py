@@ -73,21 +73,22 @@ class UltrasoundAssessment(QMainWindow):
 
     def init_ui(self):
         self.setWindowTitle("Ultrasound Assessment")
-        # self.showMaximized()
-        self.showFullScreen()
+        self.showMaximized()
+        # self.showFullScreen()
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
 
         self.video_label = QLabel()
         self.video_label.setAlignment(Qt.AlignCenter)
 
+        # buttons
         self.healthy_btn = QPushButton("Healthy")
         self.unhealthy_btn = QPushButton("Unhealthy")
         self.cant_tell_btn = QPushButton("Can't Tell")
 
         for btn in [self.healthy_btn, self.unhealthy_btn, self.cant_tell_btn]:
             btn.setStyleSheet(
-                "border-radius: 25px; padding: 10px; font-size: 18px; background-color: lightblue; cursor: pointer;"
+                "border-radius: 25px; padding: 10px; font-size: 18px; background-color: lightblue;"
             )
             btn.setFixedSize(150, 50)
             btn.setCursor(Qt.PointingHandCursor)
@@ -100,9 +101,38 @@ class UltrasoundAssessment(QMainWindow):
         self.play_btn = QPushButton("Play")
         self.play_btn.clicked.connect(self.toggle_playback)
 
+        # video
         self.slider = QSlider(Qt.Horizontal)
-        self.slider.sliderMoved.connect(self.seek_video)
+        # self.slider.sliderMoved.connect(self.seek_video)
         self.slider.setMinimum(0)
+        self.slider.sliderPressed.connect(self.stop_video)
+        self.slider.sliderReleased.connect(self.seek_video)  # Update on release
+        self.slider.setCursor(Qt.PointingHandCursor)
+        self.slider.setStyleSheet("""
+            QSlider::handle:horizontal {
+                background-color: #085a9c;  /* Handle color */
+                width: 30px;  /* Increased handle width */
+                height: 30px;  /* Increased handle height */
+                border-radius: 15px;  /* Makes it a rounded circle */
+                margin: -20px 0;  /* Expands clickable area */
+            }
+            QSlider::handle:horizontal:pressed {
+                background-color: #499dd7;  /* Lighter blue when pressed */
+            }
+            QSlider::groove:horizontal {
+                background-color: #d3d3d3;  /* Slider track color */
+                height: 10px;  /* Groove height */
+                border-radius: 5px;  /* Rounded edges */
+            }
+            QSlider::sub-page:horizontal {
+                background-color: #0078d7;  /* Filled section color */
+                border-radius: 5px;
+            }
+            QSlider::groove:horizontal:hover {
+                background-color: #e0e0e0;  /* Highlight groove when hovered */
+            }
+        """)
+
 
         self.backward_btn = QPushButton("⏪")
         self.forward_btn = QPushButton("⏩")
@@ -172,10 +202,18 @@ class UltrasoundAssessment(QMainWindow):
         else:
             self.timer.start(30)
             self.play_btn.setText("Pause")
-
-    def seek_video(self, frame_idx):
+            
+    def stop_video(self):
+        self.timer.stop()
+        self.play_btn.setText("Play")
+        
+    def seek_video(self):
+        frame_idx = self.slider.value()
         self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+        if self.timer.isActive(): # we want to stop the video, so toggle only if video is playing
+            self.toggle_playback()
         self.update_frame()
+        self.toggle_playback() 
 
     def jump_backward(self):
         current_frame = self.cap.get(cv2.CAP_PROP_POS_FRAMES)
@@ -220,7 +258,7 @@ class UltrasoundAssessment(QMainWindow):
         layout.addWidget(label)
 
         exit_btn = QPushButton("Exit")
-        exit_btn.setStyleSheet("border-radius: 25px; padding: 10px; font-size: 18px; background-color: lightgreen; cursor: pointer;")
+        exit_btn.setStyleSheet("border-radius: 25px; padding: 10px; font-size: 18px; background-color: lightgreen")
         exit_btn.setCursor(Qt.PointingHandCursor)
         exit_btn.clicked.connect(self.close)
         layout.addWidget(exit_btn)
