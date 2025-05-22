@@ -33,7 +33,7 @@ class UltrasoundAssessment(QMainWindow):
         self.video_transform = {}
         self.correct_predictions = {}
         self.start_time = None
-        self.current_video_order = 0
+        self.current_video_order = 1 # start at the first video
 
         self.video_queue = self.get_video_queue()
         self.df = self.create_df()
@@ -86,7 +86,12 @@ class UltrasoundAssessment(QMainWindow):
 
         self.video_label = QLabel()
         self.video_label.setAlignment(Qt.AlignCenter)
-
+        
+        # Top-Right Video Order Label
+        self.video_order_label = QLabel(str(self.current_video_order))
+        self.video_order_label.setStyleSheet("color: gray; font-size: 20px;")
+        self.video_order_label.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
+        
         # buttons
         self.healthy_btn = QPushButton("Healthy")
         self.unhealthy_btn = QPushButton("Unhealthy")
@@ -154,6 +159,7 @@ class UltrasoundAssessment(QMainWindow):
         button_layout.addWidget(self.cant_tell_btn)
 
         controls_layout = QHBoxLayout()
+        controls_layout.addWidget(self.video_order_label)
         controls_layout.addWidget(self.backward_btn)
         controls_layout.addWidget(self.play_btn)
         controls_layout.addWidget(self.forward_btn)
@@ -173,6 +179,9 @@ class UltrasoundAssessment(QMainWindow):
             self.show_end_screen()
             return
         self.start_time = pd.Timestamp.now()
+        
+        # display index 
+        self.video_order_label.setText(str(self.current_video_order))
 
         self.cap = cv2.VideoCapture(self.current_video.filepath)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.current_video.resolution[0])
@@ -235,7 +244,6 @@ class UltrasoundAssessment(QMainWindow):
         time_taken = (pd.Timestamp.now() - self.start_time).total_seconds()
         # TODO explanation
         self.video_queue.update_predictions(self.current_video, prediction, explanation)
-        self.current_video_order += 1
 
         log_data = {
             "video_name": self.current_video.filename,
@@ -249,6 +257,7 @@ class UltrasoundAssessment(QMainWindow):
         }
         pd.DataFrame([log_data]).to_csv(self.log_file, mode="a", header=False, index=False)
         
+        self.current_video_order += 1
         self.cap.release()
         self.timer.stop()
 
