@@ -1,8 +1,3 @@
-# TODO
-# add number to each ultrasound video displayed
-# this number (index) will also get logged to the CSV
-# just in case the clinician makes a mistake and wants to edit the response
-
 import argparse
 import datetime
 import sys
@@ -99,7 +94,18 @@ class UltrasoundAssessment(QMainWindow):
 
         for btn in [self.healthy_btn, self.unhealthy_btn, self.cant_tell_btn]:
             btn.setStyleSheet(
-                "border-radius: 25px; padding: 10px; font-size: 18px; background-color: lightblue;"
+                """
+                QPushButton {
+                    border-radius: 5px;
+                    padding: 10px;
+                    font-size: 18px;
+                    background-color: lightgray;
+                }
+                QPushButton:hover {
+                    background-color: gray;
+                    color: white; /* Optional: Makes text more readable on darker background */
+                }
+                """
             )
             btn.setFixedSize(150, 50)
             btn.setCursor(Qt.PointingHandCursor)
@@ -107,7 +113,6 @@ class UltrasoundAssessment(QMainWindow):
         self.healthy_btn.clicked.connect(lambda: self.log_prediction("Healthy"))
         self.unhealthy_btn.clicked.connect(lambda: self.log_prediction("Unhealthy"))
         self.cant_tell_btn.clicked.connect(lambda: self.log_prediction("Can't Tell"))
-        
 
         self.play_btn = QPushButton("Play")
         self.play_btn.clicked.connect(self.toggle_playback)
@@ -145,8 +150,8 @@ class UltrasoundAssessment(QMainWindow):
         """)
 
 
-        self.backward_btn = QPushButton("⏪")
-        self.forward_btn = QPushButton("⏩")
+        self.backward_btn = QPushButton("<<")
+        self.forward_btn = QPushButton(">>")
         self.backward_btn.clicked.connect(self.jump_backward)
         self.forward_btn.clicked.connect(self.jump_forward)
 
