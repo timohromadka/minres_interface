@@ -1,3 +1,8 @@
+# TODO
+# add number to each ultrasound video displayed
+# this number (index) will also get logged to the CSV
+# just in case the clinician makes a mistake and wants to edit the response
+
 import argparse
 import datetime
 import sys
@@ -20,7 +25,7 @@ class UltrasoundAssessment(QMainWindow):
     def __init__(self, video_dir, resolutions):
         super().__init__()
         self.video_dir = video_dir
-        self.log_file = "assessment_log.csv"
+        self.log_file = f"assessment_log_{datetime.datetime.now().strftime('%H_%M_%S')}.csv"
         self.resolutions = resolutions
         self.current_video = None
         self.current_resolution_idx = 0
@@ -28,6 +33,7 @@ class UltrasoundAssessment(QMainWindow):
         self.video_transform = {}
         self.correct_predictions = {}
         self.start_time = None
+        self.current_video_order = 0
 
         self.video_queue = self.get_video_queue()
         self.df = self.create_df()
@@ -60,7 +66,7 @@ class UltrasoundAssessment(QMainWindow):
     def create_df(self):
         if not os.path.exists(self.log_file):
             pd.DataFrame(columns=[
-                "video_name", "resolution", "prediction", "time_taken", "true_label", "time_stamp", "explanation"
+                "video_name", "view_order", "resolution", "prediction", "time_taken", "true_label", "time_stamp", "explanation"
             ]).to_csv(self.log_file, index=False)
             
         # self.video_order = random.sample(self.videos, len(self.videos))
@@ -229,9 +235,11 @@ class UltrasoundAssessment(QMainWindow):
         time_taken = (pd.Timestamp.now() - self.start_time).total_seconds()
         # TODO explanation
         self.video_queue.update_predictions(self.current_video, prediction, explanation)
+        self.current_video_order += 1
 
         log_data = {
             "video_name": self.current_video.filename,
+            "view_order": self.current_video_order,
             "resolution": self.current_video.resolution,
             "prediction": prediction,
             "time_taken": time_taken,
