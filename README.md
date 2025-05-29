@@ -19,6 +19,14 @@ This code is to create an ultrasound display viewer
 ## Questions:
 - will resizing ruin the proportions, thus intuition of clinicans? shall we keep proportion of original video (whatever that is)
 
+## Prerequisites
+You must have python installed on the system. Download the latest version of python from https://www.python.org/.
+During installation be sure to select `Add Python to Path` and `Ensure ```pip``` is included`
+To verify installation, open up a terminal window and type
+```
+python --version
+```
+
 ## Installation
 ```
 python -m venv minres_venv
@@ -26,8 +34,7 @@ python -m venv minres_venv
 pip install pyqt5 opencv-python-headless pandas
 ```
 
-If you are on LINUX, then follow the commands below:
-Then, run this in console:
+If you are on LINUX, then write this in terminal
 ```
 export QT_QPA_PLATFORM=offscreen 
 ```
