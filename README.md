@@ -20,8 +20,11 @@ This code is to create an ultrasound display viewer
 - will resizing ruin the proportions, thus intuition of clinicans? shall we keep proportion of original video (whatever that is)
 
 ## Prerequisites
-You must have python installed on the system. Download the latest version of python from https://www.python.org/.
-During installation be sure to select `Add Python to Path` and `Ensure ```pip``` is included`
+You must have Python installed on the system. Download the latest version of Python from [python.org](https://www.python.org/).  
+During installation, be sure to select:
+- **`Add Python to Path`**
+- _Ensure `pip` is included_
+  
 To verify installation, open up a terminal window and type
 ```
 python --version
