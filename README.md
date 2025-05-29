@@ -26,6 +26,7 @@ python -m venv minres_venv
 pip install pyqt5 opencv-python-headless pandas
 ```
 
+If you are on LINUX, then follow the commands below:
 Then, run this in console:
 ```
 export QT_QPA_PLATFORM=offscreen 
