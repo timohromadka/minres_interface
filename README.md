@@ -22,8 +22,8 @@ This code is to create an ultrasound display viewer
 ## Prerequisites
 You must have Python installed on the system. Download the latest version of Python from [python.org](https://www.python.org/).  
 During installation, be sure to select:
-- **`Add Python to Path`**
-- _Ensure `pip` is included_
+- _Add Python to Path_
+- _Ensure_ `pip` _is included_
   
 To verify installation, open up a terminal window and type
 ```
