@@ -33,7 +33,7 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Set up ultrasound data before running GUI tests.')
     parser.add_argument("--data-path", type=str, default="ultrasounds", help="Directory in which ultrasound videos are located.")
-    parser.add_argument("--resolutions", type=utils.parse_resolutions, default=[(50, 90), (320, 240), (480, 320), (640, 480), (800, 600), (1024, 768), (1280, 720)], help="Specify the resolution for compression, e.g. [(420,300), (800,600)].")
+    parser.add_argument("--resolutions", type=utils.parse_resolutions, default=[(320, 240), (480, 320), (640, 480), (800, 600), (1024, 768), (1280, 720)], help="Specify the resolution for compression, e.g. [(420,300), (800,600)].")
     
     args = parser.parse_args()
     main(args)
