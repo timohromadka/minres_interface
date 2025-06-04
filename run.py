@@ -44,7 +44,7 @@ class UltrasoundAssessment(QMainWindow):
         for category in ['healthy', 'unhealthy']:
             folder_path = os.path.join(self.video_dir, category)
             for file in os.listdir(folder_path):
-                if file.endswith('.mp4'):
+                if file.endswith(('.mp4', '.MP4', '.AVI', '.avi')):
                     video_path = os.path.join(folder_path, file)
                     res_w = cv2.VideoCapture(video_path).get(cv2.CAP_PROP_FRAME_WIDTH)
                     res_h = cv2.VideoCapture(video_path).get(cv2.CAP_PROP_FRAME_HEIGHT)
@@ -88,8 +88,8 @@ class UltrasoundAssessment(QMainWindow):
         self.video_order_label.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
         
         # buttons
-        self.healthy_btn = QPushButton("Healthy")
-        self.unhealthy_btn = QPushButton("Unhealthy")
+        self.healthy_btn = QPushButton("No (No Adenomyosis Present)")
+        self.unhealthy_btn = QPushButton("Yes (Adenomyosis Present)")
         self.cant_tell_btn = QPushButton("Can't Tell")
 
         for btn in [self.healthy_btn, self.unhealthy_btn, self.cant_tell_btn]:
@@ -107,14 +107,14 @@ class UltrasoundAssessment(QMainWindow):
                 }
                 """
             )
-            btn.setFixedSize(150, 50)
+            btn.setFixedSize(450, 50)
             btn.setCursor(Qt.PointingHandCursor)
 
-        self.healthy_btn.clicked.connect(lambda: self.log_prediction("Healthy"))
-        self.unhealthy_btn.clicked.connect(lambda: self.log_prediction("Unhealthy"))
+        self.healthy_btn.clicked.connect(lambda: self.log_prediction("No (No Adenomyosis Present)"))
+        self.unhealthy_btn.clicked.connect(lambda: self.log_prediction("Yes (Adenomyosis Present)"))
         self.cant_tell_btn.clicked.connect(lambda: self.log_prediction("Can't Tell"))
 
-        self.play_btn = QPushButton("Play")
+        self.play_btn = QPushButton("Pause")
         self.play_btn.clicked.connect(self.toggle_playback)
 
         # video
