@@ -59,7 +59,7 @@ class VideoQueue:
             if self.successful_predictions[video.original_filename] >= 3:
                 video.predicted_label = "N/A"
                 video.explanation = "Lower resolutions predicted successfully 3x"
-                print(f"Discarding higher resolution: {video}")
+                # print(f"Discarding higher resolution: {video}")
                 continue
 
             # Check if all lower resolutions have been processed
