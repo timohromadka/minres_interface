@@ -12,7 +12,7 @@ from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QPushButton, QSlider, QVBoxLayout, QHBoxLayout,
     QWidget, QLabel, QStyle
 )
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtCore import Qt, QTimer, QEvent
 from PyQt5.QtGui import QPixmap, QImage
 
 from utils import VideoSample, VideoQueue, parse_resolutions
@@ -30,14 +30,14 @@ class UltrasoundAssessment(QMainWindow):
         self.correct_predictions = {}
         self.start_time = None
         self.current_video_order = 1 # start at the first video
+        
+        # for cant tell option
+        self.cant_tell_details_shown = False
+        self.selected_reasons = []
 
         self.video_queue = self.get_video_queue()
         self.df = self.create_df()
         self.init_ui()
-        
-    class CorruptFileException(Exception):
-        """Custom exception for corrupt video files."""
-        pass
         
 
     def get_video_queue(self):
@@ -80,6 +80,39 @@ class UltrasoundAssessment(QMainWindow):
         # self.showFullScreen()
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
+        
+        self.setStyleSheet("""
+            QMainWindow {
+                background-color: #121212; /* Dark background */
+            }
+            QLabel {
+                color: #ffffff; /* White text */
+            }
+            QPushButton {
+                background-color: #2c2c2c; /* Dark button background */
+                color: #ffffff; /* White button text */
+                border-radius: 5px;
+                padding: 10px;
+                font-size: 18px;
+            }
+            QPushButton:hover {
+                background-color: #3a3a3a; /* Slightly lighter for hover */
+            }
+            QSlider::groove:horizontal {
+                background-color: #2c2c2c; /* Slider track color */
+                height: 10px;
+            }
+            QSlider::handle:horizontal {
+                background-color: #3a3a3a; /* Slider handle color */
+                border: 1px solid #ffffff;
+                width: 20px;
+                height: 20px;
+                border-radius: 10px;
+            }
+            QSlider::sub-page:horizontal {
+                background-color: #0078d7; /* Filled section color */
+            }
+        """)
 
         self.video_label = QLabel()
         self.video_label.setAlignment(Qt.AlignCenter)
@@ -90,13 +123,21 @@ class UltrasoundAssessment(QMainWindow):
         self.video_order_label.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
         
         # buttons
+        self.play_btn = QPushButton("Pause")
+        self.play_btn.setFixedSize(80, 50)
+        self.play_btn.clicked.connect(self.toggle_playback)
+        
+        
+        self.backward_btn = QPushButton("<<")
+        self.forward_btn = QPushButton(">>")
+        self.backward_btn.clicked.connect(self.jump_backward)
+        self.forward_btn.clicked.connect(self.jump_forward)
+        
         self.healthy_btn = QPushButton("No (No Adenomyosis Present)")
         self.unhealthy_btn = QPushButton("Yes (Adenomyosis Present)")
-        self.cant_tell_nmg_btn = QPushButton("Can't Tell: Need More Gain")
-        self.cant_tell_tb_btn = QPushButton("Can't Tell: Too Blurry")
-        self.cant_tell_o_btn = QPushButton("Can't Tell: Other")
+        self.cant_tell_btn = QPushButton("Can't Tell")
 
-        for btn in [self.healthy_btn, self.unhealthy_btn, self.cant_tell_nmg_btn, self.cant_tell_tb_btn, self.cant_tell_o_btn]:
+        for btn in [self.healthy_btn, self.unhealthy_btn, self.cant_tell_btn]:
             btn.setStyleSheet(
                 """
                 QPushButton {
@@ -104,6 +145,7 @@ class UltrasoundAssessment(QMainWindow):
                     padding: 10px;
                     font-size: 18px;
                     background-color: lightgray;
+                    color: #404040;
                 }
                 QPushButton:hover {
                     background-color: gray;
@@ -111,15 +153,17 @@ class UltrasoundAssessment(QMainWindow):
                 }
                 """
             )
-            btn.setFixedSize(450, 50)
             btn.setCursor(Qt.PointingHandCursor)
-            
+            btn.setFocusPolicy(Qt.NoFocus)
+            btn.setFixedSize(260, 50)
+
+        # styles for healthy and unhealthy
         healthy_btn_style = """
             QPushButton {
-                background-color: #d6edce;
+                background-color: #a0c99b;
             }
             QPushButton:hover {
-                background-color: #c3dbba;
+                background-color: #769971;
             }
             """
         current_stylesheet = self.healthy_btn.styleSheet()
@@ -127,23 +171,50 @@ class UltrasoundAssessment(QMainWindow):
 
         unhealthy_btn_style ="""
             QPushButton {
-                background-color: #e6c8c8;
+                background-color: #cc9797;
             }
             QPushButton:hover {
-                background-color: #d6b6b6;
+                background-color: #a37474;
             }
             """
         current_stylesheet = self.unhealthy_btn.styleSheet()
         self.unhealthy_btn.setStyleSheet(current_stylesheet + unhealthy_btn_style)
 
-        self.healthy_btn.clicked.connect(lambda: self.log_prediction("healthy")) # No (No Adenomyosis Present)
-        self.unhealthy_btn.clicked.connect(lambda: self.log_prediction("unhealthy")) # Yes (Adenomyosis Present)
-        self.cant_tell_nmg_btn.clicked.connect(lambda: self.log_prediction("Can't Tell: Need More Gain"))
-        self.cant_tell_tb_btn.clicked.connect(lambda: self.log_prediction("Can't Tell: Too Blurry"))
-        self.cant_tell_o_btn.clicked.connect(lambda: self.log_prediction("Can't Tell: Other"))
+        self.healthy_btn.clicked.connect(lambda: self.log_prediction("healthy"))
+        self.unhealthy_btn.clicked.connect(lambda: self.log_prediction("unhealthy"))
+        self.cant_tell_btn.clicked.connect(lambda: self.show_cant_tell_options())
 
-        self.play_btn = QPushButton("Pause")
-        self.play_btn.clicked.connect(self.toggle_playback)
+        self.reason_buttons = [
+            QPushButton(reason)
+            for reason in [
+                "Need More Gain",
+                "Too Blurry",
+                "Image Artifact",
+                "Poor Contrast",
+                "Video Too Fast",
+                "Shadows Obscuring View",
+                "Incomplete Endometrium View",
+                "Need Better Myometrium View",
+                "Need Doppler Imaging",
+                "Other",
+            ]
+        ]
+        
+        for btn in self.reason_buttons:
+            btn.setCheckable(True)
+            btn.setStyleSheet(
+                "background-color: lightgray; font-size: 14px; padding: 8px; border-radius: 5px;"
+            )
+            btn.clicked.connect(self.toggle_reason)
+            
+        self.proceed_btn = QPushButton("Proceed")
+        self.proceed_btn.setStyleSheet(
+            "background-color: lightblue; font-size: 18px; padding: 10px; border-radius: 5px;"
+        )
+        self.proceed_btn.clicked.connect(self.log_cant_tell_and_next)
+        
+        self.toggle_reason_layout = QVBoxLayout()
+        self.toggle_reason_layout.setSpacing(5)
 
         # video
         self.slider = QSlider(Qt.Horizontal)
@@ -178,20 +249,22 @@ class UltrasoundAssessment(QMainWindow):
         """)
 
 
-        self.backward_btn = QPushButton("<<")
-        self.forward_btn = QPushButton(">>")
-        self.backward_btn.clicked.connect(self.jump_backward)
-        self.forward_btn.clicked.connect(self.jump_forward)
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_frame)
 
-        button_layout = QHBoxLayout()
-        button_layout.addWidget(self.healthy_btn)
-        button_layout.addWidget(self.unhealthy_btn)
-        button_layout.addWidget(self.cant_tell_nmg_btn)
-        button_layout.addWidget(self.cant_tell_tb_btn)
-        button_layout.addWidget(self.cant_tell_o_btn)
+        # Layout for the main decision buttons
+        decision_layout = QHBoxLayout()
+        decision_layout.addWidget(self.healthy_btn)
+        decision_layout.addWidget(self.unhealthy_btn)
+        decision_layout.addWidget(self.cant_tell_btn)
+
+        # button_layout = QHBoxLayout()
+        # button_layout.addWidget(self.healthy_btn)
+        # button_layout.addWidget(self.unhealthy_btn)
+        # button_layout.addWidget(self.cant_tell_nmg_btn)
+        # button_layout.addWidget(self.cant_tell_tb_btn)
+        # button_layout.addWidget(self.cant_tell_o_btn)
 
         controls_layout = QHBoxLayout()
         controls_layout.addWidget(self.video_order_label)
@@ -201,12 +274,46 @@ class UltrasoundAssessment(QMainWindow):
         controls_layout.addWidget(self.slider)
 
         main_layout = QVBoxLayout()
-        main_layout.addLayout(button_layout)
+        main_layout.addLayout(decision_layout)
         main_layout.addWidget(self.video_label)
         main_layout.addLayout(controls_layout)
+        main_layout.addLayout(self.toggle_reason_layout)
 
         self.central_widget.setLayout(main_layout)
         self.load_next_video()
+            
+    def show_cant_tell_options(self):
+        if not self.cant_tell_details_shown:
+            button_layout = QHBoxLayout()
+            for btn in self.reason_buttons:
+                button_layout.addWidget(btn)
+            button_layout.addWidget(self.proceed_btn)
+
+            # Clear previous layout if any (optional)
+            while self.toggle_reason_layout.count():
+                child = self.toggle_reason_layout.takeAt(0)
+                if child.widget():
+                    child.widget().setParent(None)
+
+            self.toggle_reason_layout.addLayout(button_layout)
+            self.cant_tell_details_shown = True
+            
+    def log_cant_tell_and_next(self):
+        reasons_str = ", ".join(self.selected_reasons) if self.selected_reasons else "None"
+        self.log_prediction(f"Can't Tell: {reasons_str}")
+        self.selected_reasons.clear()
+        for btn in self.reason_buttons:
+            btn.setChecked(False)
+        self.cant_tell_details_shown = False
+        self.toggle_reason_layout.takeAt(0)  # Clear the cant-tell row
+        self.load_next_video()
+            
+    def toggle_reason(self):
+        sender = self.sender()
+        if sender.isChecked():
+            self.selected_reasons.append(sender.text())
+        else:
+            self.selected_reasons.remove(sender.text())
 
     def load_next_video(self):
         self.current_video  = self.video_queue.get_next_video() # returns a VideoSample object
