@@ -3,6 +3,7 @@ import datetime
 import sys
 import os
 import random
+import re
 import cv2
 import pandas as pd
 import logging
@@ -45,14 +46,15 @@ class UltrasoundAssessment(QMainWindow):
             folder_path = os.path.join(self.video_dir, category)
             for file in os.listdir(folder_path):
                 if file.endswith(('.mp4', '.MP4', '.AVI', '.avi')):
-                    video_path = os.path.join(folder_path, file)
-                    res_w = cv2.VideoCapture(video_path).get(cv2.CAP_PROP_FRAME_WIDTH)
-                    res_h = cv2.VideoCapture(video_path).get(cv2.CAP_PROP_FRAME_HEIGHT)
-                    # instantiate object
-                    if res_w == 0 or res_h == 0:
-                        raise self.CorruptFileException(f"Corrupt file detected: {video_path}")
-                    video_object = VideoSample(video_path, (res_w, res_h))
-                    self.videos.append(video_object)
+                    if re.search(r"\d+x\d+", file):
+                        video_path = os.path.join(folder_path, file)
+                        res_w = cv2.VideoCapture(video_path).get(cv2.CAP_PROP_FRAME_WIDTH)
+                        res_h = cv2.VideoCapture(video_path).get(cv2.CAP_PROP_FRAME_HEIGHT)
+                        # instantiate object
+                        if res_w == 0 or res_h == 0:
+                            raise self.CorruptFileException(f"Corrupt file detected: {video_path}")
+                        video_object = VideoSample(video_path, (res_w, res_h))
+                        self.videos.append(video_object)
                     
         video_queue = VideoQueue(self.videos)
         return video_queue
@@ -90,9 +92,11 @@ class UltrasoundAssessment(QMainWindow):
         # buttons
         self.healthy_btn = QPushButton("No (No Adenomyosis Present)")
         self.unhealthy_btn = QPushButton("Yes (Adenomyosis Present)")
-        self.cant_tell_btn = QPushButton("Can't Tell")
+        self.cant_tell_nmg_btn = QPushButton("Can't Tell: Need More Gain")
+        self.cant_tell_tb_btn = QPushButton("Can't Tell: Too Blurry")
+        self.cant_tell_o_btn = QPushButton("Can't Tell: Other")
 
-        for btn in [self.healthy_btn, self.unhealthy_btn, self.cant_tell_btn]:
+        for btn in [self.healthy_btn, self.unhealthy_btn, self.cant_tell_nmg_btn, self.cant_tell_tb_btn, self.cant_tell_o_btn]:
             btn.setStyleSheet(
                 """
                 QPushButton {
@@ -103,16 +107,40 @@ class UltrasoundAssessment(QMainWindow):
                 }
                 QPushButton:hover {
                     background-color: gray;
-                    color: white; /* Optional: Makes text more readable on darker background */
+                    color: white;
                 }
                 """
             )
             btn.setFixedSize(450, 50)
             btn.setCursor(Qt.PointingHandCursor)
+            
+        healthy_btn_style = """
+            QPushButton {
+                background-color: #d6edce;
+            }
+            QPushButton:hover {
+                background-color: #c3dbba;
+            }
+            """
+        current_stylesheet = self.healthy_btn.styleSheet()
+        self.healthy_btn.setStyleSheet(current_stylesheet + healthy_btn_style)
 
-        self.healthy_btn.clicked.connect(lambda: self.log_prediction("No (No Adenomyosis Present)"))
-        self.unhealthy_btn.clicked.connect(lambda: self.log_prediction("Yes (Adenomyosis Present)"))
-        self.cant_tell_btn.clicked.connect(lambda: self.log_prediction("Can't Tell"))
+        unhealthy_btn_style ="""
+            QPushButton {
+                background-color: #e6c8c8;
+            }
+            QPushButton:hover {
+                background-color: #d6b6b6;
+            }
+            """
+        current_stylesheet = self.unhealthy_btn.styleSheet()
+        self.unhealthy_btn.setStyleSheet(current_stylesheet + unhealthy_btn_style)
+
+        self.healthy_btn.clicked.connect(lambda: self.log_prediction("healthy")) # No (No Adenomyosis Present)
+        self.unhealthy_btn.clicked.connect(lambda: self.log_prediction("unhealthy")) # Yes (Adenomyosis Present)
+        self.cant_tell_nmg_btn.clicked.connect(lambda: self.log_prediction("Can't Tell: Need More Gain"))
+        self.cant_tell_tb_btn.clicked.connect(lambda: self.log_prediction("Can't Tell: Too Blurry"))
+        self.cant_tell_o_btn.clicked.connect(lambda: self.log_prediction("Can't Tell: Other"))
 
         self.play_btn = QPushButton("Pause")
         self.play_btn.clicked.connect(self.toggle_playback)
@@ -161,7 +189,9 @@ class UltrasoundAssessment(QMainWindow):
         button_layout = QHBoxLayout()
         button_layout.addWidget(self.healthy_btn)
         button_layout.addWidget(self.unhealthy_btn)
-        button_layout.addWidget(self.cant_tell_btn)
+        button_layout.addWidget(self.cant_tell_nmg_btn)
+        button_layout.addWidget(self.cant_tell_tb_btn)
+        button_layout.addWidget(self.cant_tell_o_btn)
 
         controls_layout = QHBoxLayout()
         controls_layout.addWidget(self.video_order_label)
@@ -233,7 +263,7 @@ class UltrasoundAssessment(QMainWindow):
         if self.timer.isActive(): # we want to stop the video, so toggle only if video is playing
             self.toggle_playback()
         self.update_frame()
-        self.toggle_playback() 
+        # self.toggle_playback() 
 
     def jump_backward(self):
         current_frame = self.cap.get(cv2.CAP_PROP_POS_FRAMES)

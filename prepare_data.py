@@ -24,7 +24,7 @@ def main(args):
             for res in args.resolutions:
                 file_without_extension = _file.rsplit('.', 1)[0]
                 formatted_filename = f"{file_without_extension}_{res[0]}x{res[1]}.mp4"
-                requested_files.append((formatted_filename, _file, res)) # compressed filename, original filename, target resolution
+                requested_files.append((formatted_filename, _file, res))
                 
         files_to_make = [(cf, of, r) for cf, of, r in requested_files if cf not in os.listdir(label_path)]
         for _, original_file, target_res in files_to_make:

@@ -73,7 +73,7 @@ class VideoQueue:
         """Update the video with predicted label and explanation."""
         video.predicted_label = predicted_label
         video.explanation = explanation
-
+        
         if video.label == predicted_label:
             self.successful_predictions[video.original_filename] += 1
         else:
