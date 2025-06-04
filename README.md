@@ -37,8 +37,13 @@ export QT_QPA_PLATFORM=offscreen
 ### Data Preparation
 First, we need to prepare the data. 
 1) Download the ultrasounds (.mp4) into the `ultrasounds/` directory
-2) Put all healthy ultrasound scans into `ultrasounds/healthy` and all unhealthy into `ultrasounds/unhealthy`
-3) Next, for each video create all of its resolution copies using the following command:
+2) Put all healthy ultrasound scans into `ultrasounds/healthy_original` and all unhealthy into `ultrasounds/unhealthy_original`
+3) Crop the videos to anonymize its data
+   ```
+   python crop_data.py --src_dir ultrasounds/healthy_original --dst_dir ultrasounds/healthy
+   python crop_data.py --src_dir ultrasounds/unhealthy_original --dst_dir ultrasounds/unhealthy
+   ```
+4) Next, for each video create all of its resolution copies using the following command:
    ```
    python prepare_data.py --data-path ultrasounds --resolutions "320x240, 480x320, 640x480, 800x600, 1024x768, 1280x720"
    ```
@@ -62,7 +67,4 @@ python run.py --video_dir ultrasounds
         - 1280x720 (standard)
 - saving and logging of results
     - time taken
-    - what the prediction was
-### Questions:
-- will resizing ruin the proportions, thus intuition of clinicans? shall we keep proportion of original video (whatever that is)
-
+    - prediction
