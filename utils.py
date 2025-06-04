@@ -24,7 +24,8 @@ class VideoSample:
 
         self.filename = self.filepath.split('/')[-1]
         self.label = label if label else self.get_label()
-        self.transform = random.choice(['none', 'h_flip', 'v_flip', 'hv_flip'])
+        # self.transform = random.choice(['none', 'h_flip', 'v_flip', 'hv_flip'])
+        self.transform = 'none'
         self.original_filename = os.path.basename(self.filepath).split("_")[0] + ".mp4" # extract the name before the suffix, with .mp4 at the end
 
     def get_label(self):
