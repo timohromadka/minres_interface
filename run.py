@@ -21,7 +21,7 @@ class UltrasoundAssessment(QMainWindow):
     def __init__(self, video_dir, resolutions):
         super().__init__()
         self.video_dir = video_dir
-        self.log_file = f"assessment_log_{datetime.datetime.now().strftime('%H_%M_%S')}.csv"
+        self.log_file = f"assessment_log_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.csv"
         self.resolutions = resolutions
         self.current_video = None
         self.current_resolution_idx = 0
@@ -63,7 +63,7 @@ class UltrasoundAssessment(QMainWindow):
     def create_df(self):
         if not os.path.exists(self.log_file):
             pd.DataFrame(columns=[
-                "video_name", "view_order", "resolution", "prediction", "time_taken", "true_label", "time_stamp", "explanation"
+                "video_name", "view_order", "resolution", "prediction", "time_taken", "true_label", "time_stamp"
             ]).to_csv(self.log_file, index=False)
             
         # self.video_order = random.sample(self.videos, len(self.videos))
@@ -182,7 +182,7 @@ class UltrasoundAssessment(QMainWindow):
 
         self.healthy_btn.clicked.connect(lambda: self.log_prediction("healthy"))
         self.unhealthy_btn.clicked.connect(lambda: self.log_prediction("unhealthy"))
-        self.cant_tell_btn.clicked.connect(lambda: self.show_cant_tell_options())
+        self.cant_tell_btn.clicked.connect(lambda: self.toggle_reasons_availability())
 
         self.reason_buttons = [
             QPushButton(reason)
@@ -199,23 +199,26 @@ class UltrasoundAssessment(QMainWindow):
                 "Other",
             ]
         ]
-        
         for btn in self.reason_buttons:
-            btn.setCheckable(True)
-            btn.setStyleSheet(
-                "background-color: lightgray; font-size: 14px; padding: 8px; border-radius: 5px;"
-            )
             btn.clicked.connect(self.toggle_reason)
+    
             
         self.proceed_btn = QPushButton("Proceed")
-        self.proceed_btn.setStyleSheet(
-            "background-color: lightblue; font-size: 18px; padding: 10px; border-radius: 5px;"
-        )
-        self.proceed_btn.clicked.connect(self.log_cant_tell_and_next)
+        self.proceed_btn.setStyleSheet("""
+            QPushButton {
+                background-color: lightblue;
+                font-size: 18px;
+                padding: 10px;
+                border-radius: 5px;
+                border: none;
+            }
+            QPushButton:hover {
+                background-color: #5aa0d8;  /* darker light blue on hover */
+            }
+        """)
+        self.proceed_btn.clicked.connect(lambda: self.log_prediction("Can't Tell: " + ", ".join(self.selected_reasons)))
+        self.proceed_btn.clicked.connect(lambda: self.toggle_reasons_availability())
         
-        self.toggle_reason_layout = QVBoxLayout()
-        self.toggle_reason_layout.setSpacing(5)
-
         # video
         self.slider = QSlider(Qt.Horizontal)
         # self.slider.sliderMoved.connect(self.seek_video)
@@ -258,14 +261,14 @@ class UltrasoundAssessment(QMainWindow):
         decision_layout.addWidget(self.healthy_btn)
         decision_layout.addWidget(self.unhealthy_btn)
         decision_layout.addWidget(self.cant_tell_btn)
-
-        # button_layout = QHBoxLayout()
-        # button_layout.addWidget(self.healthy_btn)
-        # button_layout.addWidget(self.unhealthy_btn)
-        # button_layout.addWidget(self.cant_tell_nmg_btn)
-        # button_layout.addWidget(self.cant_tell_tb_btn)
-        # button_layout.addWidget(self.cant_tell_o_btn)
-
+        
+        cant_tell_layout = QHBoxLayout()
+        for btn in self.reason_buttons:
+            cant_tell_layout.addWidget(btn)
+        cant_tell_layout.addWidget(self.proceed_btn)
+        cant_tell_layout.setSpacing(5)
+        
+        # bottom controls for video playback
         controls_layout = QHBoxLayout()
         controls_layout.addWidget(self.video_order_label)
         controls_layout.addWidget(self.backward_btn)
@@ -273,47 +276,84 @@ class UltrasoundAssessment(QMainWindow):
         controls_layout.addWidget(self.forward_btn)
         controls_layout.addWidget(self.slider)
 
+        # main layout
         main_layout = QVBoxLayout()
         main_layout.addLayout(decision_layout)
+        main_layout.addLayout(cant_tell_layout)
         main_layout.addWidget(self.video_label)
         main_layout.addLayout(controls_layout)
-        main_layout.addLayout(self.toggle_reason_layout)
+        
+        # toggle visibility for the first time to avoid them appearing at start
+        self.toggle_reasons_availability()
 
         self.central_widget.setLayout(main_layout)
         self.load_next_video()
-            
-    def show_cant_tell_options(self):
-        if not self.cant_tell_details_shown:
-            button_layout = QHBoxLayout()
-            for btn in self.reason_buttons:
-                button_layout.addWidget(btn)
-            button_layout.addWidget(self.proceed_btn)
 
-            # Clear previous layout if any (optional)
-            while self.toggle_reason_layout.count():
-                child = self.toggle_reason_layout.takeAt(0)
-                if child.widget():
-                    child.widget().setParent(None)
+    
+    def toggle_reasons_availability(self):
+        # Check current enabled state by checking one button (assuming all are same)
+        currently_enabled = self.reason_buttons[0].isEnabled()
 
-            self.toggle_reason_layout.addLayout(button_layout)
-            self.cant_tell_details_shown = True
-            
-    def log_cant_tell_and_next(self):
-        reasons_str = ", ".join(self.selected_reasons) if self.selected_reasons else "None"
-        self.log_prediction(f"Can't Tell: {reasons_str}")
-        self.selected_reasons.clear()
-        for btn in self.reason_buttons:
-            btn.setChecked(False)
-        self.cant_tell_details_shown = False
-        self.toggle_reason_layout.takeAt(0)  # Clear the cant-tell row
-        self.load_next_video()
+        if currently_enabled:
+            # Disable reason buttons: make transparent, unclickable, no hover
+            for btn in self.reason_buttons + [self.proceed_btn]:
+                btn.setEnabled(False)
+                # Update style to transparent and no hover effect
+                btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: transparent;
+                        color: transparent;
+                        border: none;
+                        padding: 8px;
+                    }
+                    QPushButton:hover {
+                        background-color: transparent;
+                        color: transparent;
+                    }
+                    QPushButton:checked {
+                        background-color: transparent;
+                        color: transparent;
+                    }
+                """)
+                btn.setChecked(False)  # uncheck all on disable
+            self.selected_reasons.clear()
+
+        else:
+            # Enable reason buttons: restore original style and make clickable
+            for btn in self.reason_buttons + [self.proceed_btn]:
+                btn.setEnabled(True)
+                # Restore original style from your init_ui()
+                btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: lightgray;
+                        font-size: 14px;
+                        padding: 8px;
+                        border-radius: 5px;
+                        border: none;
+                        color: black;
+                    }
+                    QPushButton:hover {
+                        background-color: gray;
+                        color: white;
+                    }
+                    QPushButton:checked {
+                        background-color: darkgray;
+                    }
+                    QPushButton:checked:hover {
+                        background-color: #555555;
+                    }
+                """)
+                btn.setCursor(Qt.PointingHandCursor)
+                btn.setFocusPolicy(Qt.NoFocus)
+                # btn.setFixedSize(260, 50)
+        
             
     def toggle_reason(self):
         sender = self.sender()
         if sender.isChecked():
-            self.selected_reasons.append(sender.text())
-        else:
             self.selected_reasons.remove(sender.text())
+        else:
+            self.selected_reasons.append(sender.text())
 
     def load_next_video(self):
         self.current_video  = self.video_queue.get_next_video() # returns a VideoSample object
@@ -381,12 +421,9 @@ class UltrasoundAssessment(QMainWindow):
         current_frame = self.cap.get(cv2.CAP_PROP_POS_FRAMES)
         self.cap.set(cv2.CAP_PROP_POS_FRAMES, current_frame + self.cap.get(cv2.CAP_PROP_FPS))
         self.update_frame()
-
-    def log_prediction(self, prediction, explanation="Not Implemented Yet"):
+        
+    def write_to_csv(self, prediction):
         time_taken = (pd.Timestamp.now() - self.start_time).total_seconds()
-        # TODO explanation
-        self.video_queue.update_predictions(self.current_video, prediction, explanation)
-
         log_data = {
             "video_name": self.current_video.filename,
             "view_order": self.current_video_order,
@@ -395,10 +432,15 @@ class UltrasoundAssessment(QMainWindow):
             "time_taken": time_taken,
             "true_label": self.current_video.label,
             "time_stamp": datetime.datetime.now(),
-            "explanation": self.current_video.explanation
         }
         pd.DataFrame([log_data]).to_csv(self.log_file, mode="a", header=False, index=False)
+
+    def log_prediction(self, prediction):      
+        # update predictions and log
+        self.video_queue.update_predictions(self.current_video, prediction)
+        self.write_to_csv(prediction)
         
+        # wrap up
         self.current_video_order += 1
         self.cap.release()
         self.timer.stop()
@@ -417,7 +459,17 @@ class UltrasoundAssessment(QMainWindow):
         layout.addWidget(label)
 
         exit_btn = QPushButton("Exit")
-        exit_btn.setStyleSheet("border-radius: 25px; padding: 10px; font-size: 18px; background-color: lightgreen")
+        exit_btn.setStyleSheet("""
+            QPushButton {
+                border-radius: 25px;
+                padding: 10px;
+                font-size: 18px;
+                background-color: lightgreen;
+            }
+            QPushButton:hover {
+                background-color: darkgreen;
+            }
+        """)
         exit_btn.setCursor(Qt.PointingHandCursor)
         exit_btn.clicked.connect(self.close)
         layout.addWidget(exit_btn)
