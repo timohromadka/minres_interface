@@ -69,10 +69,9 @@ class VideoQueue:
 
         return None
 
-    def update_predictions(self, video, predicted_label, explanation):
-        """Update the video with predicted label and explanation."""
+    def update_predictions(self, video, predicted_label):
+        """Update the video with predicted label."""
         video.predicted_label = predicted_label
-        video.explanation = explanation
         
         if video.label == predicted_label:
             self.successful_predictions[video.original_filename] += 1
