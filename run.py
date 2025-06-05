@@ -125,11 +125,14 @@ class UltrasoundAssessment(QMainWindow):
         # buttons
         self.play_btn = QPushButton("Pause")
         self.play_btn.setFixedSize(80, 50)
+        self.play_btn.setCursor(Qt.PointingHandCursor)
         self.play_btn.clicked.connect(self.toggle_playback)
         
         
         self.backward_btn = QPushButton("<<")
         self.forward_btn = QPushButton(">>")
+        self.backward_btn.setCursor(Qt.PointingHandCursor)
+        self.forward_btn.setCursor(Qt.PointingHandCursor)
         self.backward_btn.clicked.connect(self.jump_backward)
         self.forward_btn.clicked.connect(self.jump_forward)
         
@@ -142,13 +145,24 @@ class UltrasoundAssessment(QMainWindow):
                 """
                 QPushButton {
                     border-radius: 5px;
+                    border: 2px solid #e3e3e3;
                     padding: 10px;
                     font-size: 18px;
-                    background-color: lightgray;
+                    background-color: #d4d4d4;
                     color: #404040;
+                    
                 }
                 QPushButton:hover {
                     background-color: gray;
+                    color: white;
+                }
+                
+                QPushButton:checked {
+                    background-color: #7b7c8c;
+                    color: white;
+                }
+                QPushButton:checked:hover {
+                    background-color: #616375;
                     color: white;
                 }
                 """
@@ -161,6 +175,7 @@ class UltrasoundAssessment(QMainWindow):
         healthy_btn_style = """
             QPushButton {
                 background-color: #a0c99b;
+                color: #3b3b3b;
             }
             QPushButton:hover {
                 background-color: #769971;
@@ -172,6 +187,8 @@ class UltrasoundAssessment(QMainWindow):
         unhealthy_btn_style ="""
             QPushButton {
                 background-color: #cc9797;
+                color: #3b3b3b;
+
             }
             QPushButton:hover {
                 background-color: #a37474;
@@ -187,19 +204,20 @@ class UltrasoundAssessment(QMainWindow):
         self.reason_buttons = [
             QPushButton(reason)
             for reason in [
-                "Need More Gain",
+                "Need More\nGain",
                 "Too Blurry",
                 "Image Artifact",
                 "Poor Contrast",
                 "Video Too Fast",
-                "Shadows Obscuring View",
-                "Incomplete Endometrium View",
-                "Need Better Myometrium View",
-                "Need Doppler Imaging",
+                "Shadows Obscuring\nView",
+                "Incomplete\nEndometrium View",
+                "Need Better\nMyometrium View",
+                "Need Doppler\nImaging",
                 "Other",
             ]
         ]
         for btn in self.reason_buttons:
+            btn.setCheckable(True)
             btn.clicked.connect(self.toggle_reason)
     
             
@@ -218,6 +236,7 @@ class UltrasoundAssessment(QMainWindow):
         """)
         self.proceed_btn.clicked.connect(lambda: self.log_prediction("Can't Tell: " + ", ".join(self.selected_reasons)))
         self.proceed_btn.clicked.connect(lambda: self.toggle_reasons_availability())
+        self.proceed_btn.clicked.connect(lambda: self.switch_off_cant_tell())
         
         # video
         self.slider = QSlider(Qt.Horizontal)
@@ -288,72 +307,93 @@ class UltrasoundAssessment(QMainWindow):
 
         self.central_widget.setLayout(main_layout)
         self.load_next_video()
+        
+    def check_cant_tell_enabled(self):
+        return self.reason_buttons[0].isEnabled()
 
+    def switch_off_cant_tell(self):
+        # switch the button off if enabled
+        if self.check_cant_tell_enabled():
+            self.toggle_reasons_availability() 
     
     def toggle_reasons_availability(self):
-        # Check current enabled state by checking one button (assuming all are same)
         currently_enabled = self.reason_buttons[0].isEnabled()
+        
 
+        width, height = 130, 55
         if currently_enabled:
-            # Disable reason buttons: make transparent, unclickable, no hover
+            # Disable reason buttons: light colored, not clickable, no hover
             for btn in self.reason_buttons + [self.proceed_btn]:
                 btn.setEnabled(False)
-                # Update style to transparent and no hover effect
+                btn.setChecked(False)  # uncheck all
+                btn.setCursor(Qt.ArrowCursor)
+                btn.setFixedSize(width, height)
                 btn.setStyleSheet("""
                     QPushButton {
                         background-color: transparent;
-                        color: transparent;
-                        border: none;
-                        padding: 8px;
+                        color: #545454;        
+                        border: 1px solid #545454;
+                        border-radius: 5px;
+                        padding: 0px;
+                        font-size: 14px;
                     }
                     QPushButton:hover {
-                        background-color: transparent;
-                        color: transparent;
-                    }
-                    QPushButton:checked {
-                        background-color: transparent;
-                        color: transparent;
+                        background-color: transparent; 
+                        color: #545454;                 
+                        border-color: #545454;    
                     }
                 """)
-                btn.setChecked(False)  # uncheck all on disable
-            self.selected_reasons.clear()
-
         else:
-            # Enable reason buttons: restore original style and make clickable
+            # Enable reason buttons: normal active style with hover and click
             for btn in self.reason_buttons + [self.proceed_btn]:
                 btn.setEnabled(True)
-                # Restore original style from your init_ui()
-                btn.setStyleSheet("""
-                    QPushButton {
-                        background-color: lightgray;
-                        font-size: 14px;
-                        padding: 8px;
-                        border-radius: 5px;
-                        border: none;
-                        color: black;
-                    }
-                    QPushButton:hover {
-                        background-color: gray;
-                        color: white;
-                    }
-                    QPushButton:checked {
-                        background-color: darkgray;
-                    }
-                    QPushButton:checked:hover {
-                        background-color: #555555;
-                    }
-                """)
                 btn.setCursor(Qt.PointingHandCursor)
-                btn.setFocusPolicy(Qt.NoFocus)
-                # btn.setFixedSize(260, 50)
-        
+                btn.setFixedSize(width, height)
+                if btn == self.proceed_btn:
+                    btn.setStyleSheet("""
+                        QPushButton {
+                            background-color: #8cb3de;  /* green */
+                            font-size: 14px;
+                            padding: 0px;
+                            border-radius: 5px;
+                            color: white;
+                        }
+                        QPushButton:hover {
+                            background-color: #6b8db3;  /* dark green */
+                            color: white;
+                        }
+                    """)
+                else:
+                    btn.setStyleSheet("""
+                        QPushButton {
+                            background-color: #cccccc;
+                            font-size: 14px;
+                            padding: 0px;
+                            border-radius: 5px;
+                            color: black;
+                        }
+                        QPushButton:hover {
+                            background-color: #adadad;
+                            color: white;
+                        }
+                        QPushButton:checked {
+                            background-color: #747580;
+                            color: white;
+                        }
+                        QPushButton:checked:hover {
+                            background-color: #5f6170;
+                            color: white;
+                        }
+                    """)
+
+
             
     def toggle_reason(self):
         sender = self.sender()
         if sender.isChecked():
-            self.selected_reasons.remove(sender.text())
-        else:
             self.selected_reasons.append(sender.text())
+        else:
+            self.selected_reasons.remove(sender.text())
 
     def load_next_video(self):
         self.current_video  = self.video_queue.get_next_video() # returns a VideoSample object
@@ -444,6 +484,9 @@ class UltrasoundAssessment(QMainWindow):
         self.current_video_order += 1
         self.cap.release()
         self.timer.stop()
+
+        # reset cant tell button
+        self.switch_off_cant_tell()
 
         # Load the next video
         self.load_next_video()
