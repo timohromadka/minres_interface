@@ -191,4 +191,8 @@ results/plots/
 external/
 .gitmodules
 
+# specific to repo, tmp files
 minres_venv/
+ultrasounds/
+ultrasounds_test/
+assessment_log*

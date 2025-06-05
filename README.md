@@ -23,7 +23,7 @@ Then, setup the python environment
 ```
 python -m venv minres_venv
 .\minres_venv\Scripts\activate
-pip install pyqt5 opencv-python-headless pandas
+pip install pyqt5 pandas opencv-python-headless
 ```
 
 If you are on LINUX, then write this in terminal to enable the GUI
