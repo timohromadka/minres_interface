@@ -147,7 +147,7 @@ class UltrasoundAssessment(QMainWindow):
                     border-radius: 5px;
                     border: 2px solid #e3e3e3;
                     padding: 10px;
-                    font-size: 18px;
+                    font-size: 24px;
                     background-color: #d4d4d4;
                     color: #404040;
                     
@@ -169,7 +169,7 @@ class UltrasoundAssessment(QMainWindow):
             )
             btn.setCursor(Qt.PointingHandCursor)
             btn.setFocusPolicy(Qt.NoFocus)
-            btn.setFixedSize(260, 50)
+            btn.setFixedSize(320, 60)
 
         # styles for healthy and unhealthy
         healthy_btn_style = """
@@ -204,15 +204,15 @@ class UltrasoundAssessment(QMainWindow):
         self.reason_buttons = [
             QPushButton(reason)
             for reason in [
-                "Need More\nGain",
-                "Too Blurry",
-                "Image Artifact",
-                "Poor Contrast",
-                "Video Too Fast",
-                "Shadows Obscuring\nView",
-                "Incomplete\nEndometrium View",
-                "Need Better\nMyometrium View",
-                "Need Doppler\nImaging",
+                "Need\nMore\nGain",
+                "Too\nBlurry",
+                "Image\nArtifact",
+                "Poor\nContrast",
+                "Video\nToo Fast",
+                "Shadows\nObscuring\nView",
+                "Incomplete\nEndometrium\nView",
+                "Need Better\nMyometrium\nView",
+                "Need\nDoppler\nImaging",
                 "Other",
             ]
         ]
@@ -320,7 +320,7 @@ class UltrasoundAssessment(QMainWindow):
         currently_enabled = self.reason_buttons[0].isEnabled()
         
 
-        width, height = 130, 55
+        width, height = 140, 80
         if currently_enabled:
             # Disable reason buttons: light colored, not clickable, no hover
             for btn in self.reason_buttons + [self.proceed_btn]:
@@ -335,7 +335,7 @@ class UltrasoundAssessment(QMainWindow):
                         border: 1px solid #545454;
                         border-radius: 5px;
                         padding: 0px;
-                        font-size: 14px;
+                        font-size: 20px;
                     }
                     QPushButton:hover {
                         background-color: transparent; 
@@ -353,7 +353,7 @@ class UltrasoundAssessment(QMainWindow):
                     btn.setStyleSheet("""
                         QPushButton {
                             background-color: #8cb3de;  /* green */
-                            font-size: 14px;
+                            font-size: 20px;
                             padding: 0px;
                             border-radius: 5px;
                             color: white;
@@ -367,7 +367,7 @@ class UltrasoundAssessment(QMainWindow):
                     btn.setStyleSheet("""
                         QPushButton {
                             background-color: #cccccc;
-                            font-size: 14px;
+                            font-size: 20px;
                             padding: 0px;
                             border-radius: 5px;
                             color: black;
@@ -377,11 +377,11 @@ class UltrasoundAssessment(QMainWindow):
                             color: white;
                         }
                         QPushButton:checked {
-                            background-color: #747580;
+                            background-color: #5b5d69;
                             color: white;
                         }
                         QPushButton:checked:hover {
-                            background-color: #5f6170;
+                            background-color: #7b809e;
                             color: white;
                         }
                     """)
