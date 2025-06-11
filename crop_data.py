@@ -55,13 +55,14 @@ if __name__ == "__main__":
     crop_left = args.crop_left
     crop_right = args.crop_right
 
-    dst_dir.mkdir(parents=True, exist_ok=True)
-
     video_exts = {".mp4", ".MP4", ".avi", ".AVI"}
 
-    for file_path in src_dir.iterdir():
+    for file_path in src_dir.rglob("*"):
         if file_path.suffix in video_exts:
-            output_name = file_path.stem + "_cropped" + file_path.suffix
-            output_path = dst_dir / output_name
+            relative_path = file_path.relative_to(src_dir)
+            if file_path.stem == "Sag-D-":
+                output_name = file_path.stem + "_cropped" + file_path.suffix
+                output_path = dst_dir / relative_path.parent / output_name
 
-            crop_video(file_path, output_path, crop_top, crop_bottom, crop_left, crop_right)
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                crop_video(file_path, output_path, crop_top, crop_bottom, crop_left, crop_right)
