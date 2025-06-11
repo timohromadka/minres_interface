@@ -68,3 +68,82 @@ python run.py --video_dir ultrasounds
 - saving and logging of results
     - time taken
     - prediction
+ 
+
+### For Cropping (Temporary)
+```
+brew install ffmpeg
+```
+
+```
+ffmpeg -i INPUT_VIDEO_PATH.mp4 -filter:v "crop=in_w-LEFT-RIGHT:in_h-TOP-BOTTOM:LEFT:TOP" OUTPUT_VIDEO_PATH.mp4
+```
+
+```
+ffmpeg -i INPUT_VIDEO_PATH.mp4 -filter:v "crop=in_w-0-0:in_h-74-0:0:0" OUTPUT_VIDEO_PATH.mp4
+```
+
+```
+nano crop_videos.sh
+```
+
+```
+#!/bin/bash
+
+input_dir=$1
+output_dir=$2
+top=$3
+left=$4
+bottom=$5
+right=$6
+# depth of recursive search, defaults to 0
+depth=${7:-0}
+
+mkdir -p "$output_dir"
+
+if [[ "$depth" -gt 0 ]]; then
+    depth_option="-maxdepth $depth"
+else
+    depth_option=""
+fi
+
+# Recursively find videos in directory
+counter=0
+find "$input_dir" $depth_option -type f \( -iname "*.mp4" -o -iname "*.avi" \) | while IFS= read -r filepath; do
+    filename=$(basename "$filepath")
+    filename_noext="${filename%.*}"
+    extension="${filename##*.}"
+    
+    # Create output directory structure matching input
+    relative_path="${filepath#$input_dir/}"
+    relative_dir=$(dirname "$relative_path")
+    mkdir -p "$output_dir/$relative_dir"
+    
+    output_path="$output_dir/$relative_dir/${filename_noext}_anonymized.${extension}"
+    
+    # Run ffmpeg crop command
+    ffmpeg -i "$filepath" -filter:v "crop=in_w-${left}-${right}:in_h-${top}-${bottom}:${left}:${top}" "$output_path" -y -loglevel error
+    
+    # Increment counter and print status every 100 videos
+    counter=$((counter + 1))
+    if (( counter % 100 == 0 )); then
+        echo "Anonymized $counter videos"
+    fi
+done
+
+echo "All videos saved to $output_dir"
+```
+
+```
+Control + O
+Enter
+Control + X
+```
+
+```
+chmod +x crop_videos.sh
+```
+
+```
+./crop_videos.sh INPUT_DIRECTORY OUTPUT_DIRECTORY 74 0 0 0 0
+```
