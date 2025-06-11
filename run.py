@@ -1,4 +1,5 @@
 import argparse
+from collections import deque
 import datetime
 import sys
 import os
@@ -18,11 +19,12 @@ from PyQt5.QtGui import QPixmap, QImage
 from utils import VideoSample, VideoQueue, parse_resolutions
 
 class UltrasoundAssessment(QMainWindow):
-    def __init__(self, video_dir, resolutions):
+    def __init__(self, video_dir):
         super().__init__()
         self.video_dir = video_dir
         self.log_file = f"assessment_log_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.csv"
-        self.resolutions = resolutions
+        # self.resolutions = resolutions
+        self.previous_videos = deque()
         self.current_video = None
         self.current_resolution_idx = 0
         self.video_order = []
@@ -46,6 +48,7 @@ class UltrasoundAssessment(QMainWindow):
             folder_path = os.path.join(self.video_dir, category)
             for file in os.listdir(folder_path):
                 if file.endswith(('.mp4', '.MP4', '.AVI', '.avi')):
+                    # only select the processed resolution videos
                     if re.search(r"\d+x\d+", file):
                         video_path = os.path.join(folder_path, file)
                         res_w = cv2.VideoCapture(video_path).get(cv2.CAP_PROP_FRAME_WIDTH)
@@ -72,6 +75,21 @@ class UltrasoundAssessment(QMainWindow):
         # }
         # self.correct_predictions = {video[0]: 0 for video in self.video_order}
 
+    def wheelEvent(self, event):
+        # Check the scroll direction: positive for up, negative for down
+        delta = event.angleDelta().y()
+
+        self.stop_video()
+        step_size = 8
+        if delta > 0:
+            # Scroll up: increase the slider value
+            self.slider.setValue(self.slider.value() + step_size)
+        elif delta < 0:
+            # Scroll down: decrease the slider value
+            self.slider.setValue(self.slider.value() - step_size)
+
+        # Prevent further propagation of the event (optional)
+        event.accept()
 
 
     def init_ui(self):
@@ -136,8 +154,8 @@ class UltrasoundAssessment(QMainWindow):
         self.backward_btn.clicked.connect(self.jump_backward)
         self.forward_btn.clicked.connect(self.jump_forward)
         
-        self.healthy_btn = QPushButton("No (No Adenomyosis Present)")
-        self.unhealthy_btn = QPushButton("Yes (Adenomyosis Present)")
+        self.healthy_btn = QPushButton("No Adenomyosis Signs Present")
+        self.unhealthy_btn = QPushButton("Adenomyosis Signs Present")
         self.cant_tell_btn = QPushButton("Can't Tell")
 
         for btn in [self.healthy_btn, self.unhealthy_btn, self.cant_tell_btn]:
@@ -169,7 +187,7 @@ class UltrasoundAssessment(QMainWindow):
             )
             btn.setCursor(Qt.PointingHandCursor)
             btn.setFocusPolicy(Qt.NoFocus)
-            btn.setFixedSize(320, 60)
+            btn.setFixedSize(360, 60)
 
         # styles for healthy and unhealthy
         healthy_btn_style = """
@@ -244,6 +262,7 @@ class UltrasoundAssessment(QMainWindow):
         self.slider.setMinimum(0)
         self.slider.sliderPressed.connect(self.stop_video)
         self.slider.sliderReleased.connect(self.seek_video)  # Update on release
+        self.slider.valueChanged.connect(self.seek_video)
         self.slider.setCursor(Qt.PointingHandCursor)
         self.slider.setStyleSheet("""
             QSlider::handle:horizontal {
@@ -287,9 +306,15 @@ class UltrasoundAssessment(QMainWindow):
         cant_tell_layout.addWidget(self.proceed_btn)
         cant_tell_layout.setSpacing(5)
         
+        self.back_btn = QPushButton("Back")
+        self.back_btn.setFixedSize(80, 50)
+        self.back_btn.setCursor(Qt.PointingHandCursor)
+        self.back_btn.clicked.connect(lambda: self.load_next_video(next=False))
+        
         # bottom controls for video playback
         controls_layout = QHBoxLayout()
         controls_layout.addWidget(self.video_order_label)
+        controls_layout.addWidget(self.back_btn)
         controls_layout.addWidget(self.backward_btn)
         controls_layout.addWidget(self.play_btn)
         controls_layout.addWidget(self.forward_btn)
@@ -395,8 +420,15 @@ class UltrasoundAssessment(QMainWindow):
         else:
             self.selected_reasons.remove(sender.text())
 
-    def load_next_video(self):
-        self.current_video  = self.video_queue.get_next_video() # returns a VideoSample object
+    def load_next_video(self, next=True):
+        if next:
+            self.current_video = self.video_queue.get_next_video() # returns a VideoSample object
+        else:
+            if not self.previous_videos:
+                return # stay where we are if no previous videos present
+            self.current_video = self.previous_videos.pop()
+            self.current_video_order -= 1
+            
         if not self.current_video:
             self.show_end_screen()
             return
@@ -444,13 +476,43 @@ class UltrasoundAssessment(QMainWindow):
         self.timer.stop()
         self.play_btn.setText("Play")
         
-    def seek_video(self):
-        frame_idx = self.slider.value()
-        self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
-        if self.timer.isActive(): # we want to stop the video, so toggle only if video is playing
-            self.toggle_playback()
-        self.update_frame()
-        # self.toggle_playback() 
+    # def seek_video(self):
+    #     frame_idx = self.slider.value()
+    #     self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+    #     if self.timer.isActive(): # we want to stop the video, so toggle only if video is playing
+    #         self.toggle_playback()
+    #     self.update_frame()
+    #     # self.toggle_playback() 
+        
+    def seek_video(self, frame_position):
+        # TODO
+        # fix so that the first videos loaded dont appear super tiny (why is this happening?)
+        if not hasattr(self, 'cap') or self.cap is None:
+            raise RuntimeError("VideoCapture object is not initialized. Load a video first.")
+        
+        # Set the position in the VideoCapture object
+        self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_position)
+        self.slider.setValue(frame_position)
+
+        # Optional: Read and display the frame at the new position
+        ret, frame = self.cap.read()
+        if ret:
+            self.display_frame(frame)
+        else:
+            raise RuntimeError(f"Failed to seek to frame {frame_position}.")
+                
+    def display_frame(self, frame):
+        """
+        Displays a single frame on the QLabel.
+        """
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        height, width, channel = frame_rgb.shape
+        bytes_per_line = 3 * width
+        qimage = QImage(frame_rgb.data, width, height, bytes_per_line, QImage.Format_RGB888)
+        pixmap = QPixmap.fromImage(qimage)
+        self.video_label.setPixmap(pixmap.scaled(
+            self.video_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+
 
     def jump_backward(self):
         current_frame = self.cap.get(cv2.CAP_PROP_POS_FRAMES)
@@ -488,6 +550,9 @@ class UltrasoundAssessment(QMainWindow):
         # reset cant tell button
         self.switch_off_cant_tell()
 
+        # add current video to stack
+        self.previous_videos.append(self.current_video)
+        
         # Load the next video
         self.load_next_video()
 
@@ -526,11 +591,11 @@ class UltrasoundAssessment(QMainWindow):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Set up ultrasound data before running GUI tests.')
     parser.add_argument("--video_dir", type=str, default="ultrasounds", help="Directory in which ultrasound videos are located.")
-    parser.add_argument("--resolutions", type=parse_resolutions, default=[(320, 240), (480, 320), (640, 480), (800, 600), (1024, 768), (1280, 720)], help="Specify the resolution for compression, e.g. [(420,300), (800,600)].")
+    # parser.add_argument("--resolutions", type=parse_resolutions, default=[(320, 240), (480, 320), (640, 480), (800, 600), (1024, 768), (1280, 720)], help="Specify the resolution for compression, e.g. [(420,300), (800,600)].")
     
     args = parser.parse_args()
     
     app = QApplication(sys.argv)
-    window = UltrasoundAssessment(args.video_dir, args.resolutions)
+    window = UltrasoundAssessment(args.video_dir)
     window.show()
     sys.exit(app.exec_())
