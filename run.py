@@ -1,3 +1,6 @@
+# TODO
+# make layout smaller/add scaling feature. During the largest resolution the video doesnt fit anymore on a regular laptop screen
+
 import argparse
 from collections import deque
 import datetime
@@ -76,6 +79,7 @@ class UltrasoundAssessment(QMainWindow):
         # self.correct_predictions = {video[0]: 0 for video in self.video_order}
 
     def wheelEvent(self, event):
+        self.slider.valueChanged.connect(self.seek_video_wheel_scroll)
         # Check the scroll direction: positive for up, negative for down
         delta = event.angleDelta().y()
 
@@ -90,6 +94,7 @@ class UltrasoundAssessment(QMainWindow):
 
         # Prevent further propagation of the event (optional)
         event.accept()
+        self.slider.valueChanged.disconnect(self.seek_video_wheel_scroll)
 
 
     def init_ui(self):
@@ -261,8 +266,8 @@ class UltrasoundAssessment(QMainWindow):
         # self.slider.sliderMoved.connect(self.seek_video)
         self.slider.setMinimum(0)
         self.slider.sliderPressed.connect(self.stop_video)
-        self.slider.sliderReleased.connect(self.seek_video)  # Update on release
-        self.slider.valueChanged.connect(self.seek_video)
+        self.slider.sliderReleased.connect(self.seek_video_mouse_click)  # Update on release
+        self.slider.valueChanged.connect(self.seek_video_wheel_scroll)
         self.slider.setCursor(Qt.PointingHandCursor)
         self.slider.setStyleSheet("""
             QSlider::handle:horizontal {
@@ -444,7 +449,7 @@ class UltrasoundAssessment(QMainWindow):
         self.slider.setMaximum(int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT)))
         self.timer.start(30)
 
-    def update_frame(self):
+    def update_frame(self, set_slider=True):
         ret, frame = self.cap.read()
         if not ret:
             self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
@@ -461,8 +466,10 @@ class UltrasoundAssessment(QMainWindow):
         h, w, _ = frame.shape
         qimg = QImage(frame.data, w, h, QImage.Format_RGB888)
         self.video_label.setPixmap(QPixmap.fromImage(qimg))
-
-        self.slider.setValue(int(self.cap.get(cv2.CAP_PROP_POS_FRAMES)))
+        # avoid recursion with slider value changing by using a flag
+        if set_slider:
+            self.slider.setValue(int(self.cap.get(cv2.CAP_PROP_POS_FRAMES)))
+        
 
     def toggle_playback(self):
         if self.timer.isActive():
@@ -476,17 +483,16 @@ class UltrasoundAssessment(QMainWindow):
         self.timer.stop()
         self.play_btn.setText("Play")
         
-    # def seek_video(self):
-    #     frame_idx = self.slider.value()
-    #     self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
-    #     if self.timer.isActive(): # we want to stop the video, so toggle only if video is playing
-    #         self.toggle_playback()
-    #     self.update_frame()
-    #     # self.toggle_playback() 
+    def seek_video_mouse_click(self):
+        frame_idx = self.slider.value()
+        self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+        if self.timer.isActive(): # we want to stop the video, so toggle only if video is playing
+            self.toggle_playback()
+        self.update_frame()
+        # self.toggle_playback() 
         
-    def seek_video(self, frame_position):
-        # TODO
-        # fix so that the first videos loaded dont appear super tiny (why is this happening?)
+    def seek_video_wheel_scroll(self, frame_position):
+
         if not hasattr(self, 'cap') or self.cap is None:
             raise RuntimeError("VideoCapture object is not initialized. Load a video first.")
         
@@ -494,13 +500,12 @@ class UltrasoundAssessment(QMainWindow):
         self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_position)
         self.slider.setValue(frame_position)
 
-        # Optional: Read and display the frame at the new position
         ret, frame = self.cap.read()
         if ret:
-            self.display_frame(frame)
-        else:
-            raise RuntimeError(f"Failed to seek to frame {frame_position}.")
-                
+            self.update_frame(set_slider=False)
+        # don't do anything if we are over video limit
+
+    
     def display_frame(self, frame):
         """
         Displays a single frame on the QLabel.
@@ -510,8 +515,11 @@ class UltrasoundAssessment(QMainWindow):
         bytes_per_line = 3 * width
         qimage = QImage(frame_rgb.data, width, height, bytes_per_line, QImage.Format_RGB888)
         pixmap = QPixmap.fromImage(qimage)
-        self.video_label.setPixmap(pixmap.scaled(
-            self.video_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+
+        # Scale while preserving aspect ratio
+        scaled_pixmap = pixmap.scaled(width, height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        self.video_label.setPixmap(scaled_pixmap)
+
 
 
     def jump_backward(self):
