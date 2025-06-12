@@ -2,6 +2,8 @@
 
 This code is to create an ultrasound display viewer. Clinicians will be able to view different resolutions of ultrasounds and make predictions as to what the label is.
 
+<img width="1000" alt="image" src="https://github.com/user-attachments/assets/f4ca8acf-ace7-41d9-9dcc-d833232023fa" />
+
 ## Prerequisites
 You must have Python installed on the system. Download the latest version of Python from [python.org](https://www.python.org/).  
 During installation, be sure to select:
