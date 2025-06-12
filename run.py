@@ -34,7 +34,6 @@ class UltrasoundAssessment(QMainWindow):
         self.video_transform = {}
         self.correct_predictions = {}
         self.start_time = None
-        self.current_video_order = 1 # start at the first video
         
         # for cant tell option
         self.cant_tell_details_shown = False
@@ -44,6 +43,9 @@ class UltrasoundAssessment(QMainWindow):
         self.df = self.create_df()
         self.init_ui()
         
+    @property
+    def current_video_order(self):
+        return self.video_queue.size  # Always returns the latest size
 
     def get_video_queue(self):
         self.videos = []
@@ -432,7 +434,6 @@ class UltrasoundAssessment(QMainWindow):
             if not self.previous_videos:
                 return # stay where we are if no previous videos present
             self.current_video = self.previous_videos.pop()
-            self.current_video_order -= 1
             
         if not self.current_video:
             self.show_end_screen()
@@ -551,7 +552,6 @@ class UltrasoundAssessment(QMainWindow):
         self.write_to_csv(prediction)
         
         # wrap up
-        self.current_video_order += 1
         self.cap.release()
         self.timer.stop()
 

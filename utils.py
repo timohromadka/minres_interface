@@ -50,11 +50,13 @@ class VideoQueue:
 
         for video in self.videos:
             heapq.heappush(self.heap, (video.resolution, video)) 
+        self.size = len(self.heap)
 
     def get_next_video(self):
         """Fetch the next video to process based on priority."""
         while self.heap:
             resolution, video = heapq.heappop(self.heap)
+            self.size = len(self.heap)
 
             # Skip videos with successful predictions >= 3
             if self.successful_predictions[video.original_filename] >= 3:
